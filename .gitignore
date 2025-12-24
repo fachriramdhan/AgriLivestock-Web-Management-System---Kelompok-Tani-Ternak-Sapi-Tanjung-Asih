@@ -1,0 +1,21 @@
+# macOS system files
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Windows system files
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# Database configuration (opsional jika ingin merahasiakan password DB)
+# includes/db_config.php
+
+# Temp files
+*.log
+*.tmp
+*.swp
+
+# IDE files
+.vscode/
+.idea/
