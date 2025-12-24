@@ -1,14 +1,21 @@
 <?php
 session_start();
 require_once '../config/database.php';
-if(!isset($_SESSION['login'])) header("Location: ../auth/login.php");
+if(!isset($_SESSION['login'])) {
+    header("Location: ../auth/login.php"); exit;
+}
 
 $role = $_SESSION['role'];
 $id_user = $_SESSION['id_user'];
 
-$jenis = $_GET['jenis'];
-$tgl_awal = $_GET['tgl_awal'];
-$tgl_akhir = $_GET['tgl_akhir'];
+$jenis = $_GET['jenis'] ?? '';
+$tgl_awal = $_GET['tgl_awal'] ?? '';
+$tgl_akhir = $_GET['tgl_akhir'] ?? '';
+
+if(!$jenis || !$tgl_awal || !$tgl_akhir){
+    $_SESSION['error'] = "Parameter laporan tidak lengkap!";
+    header("Location: index.php"); exit;
+}
 
 // Query sesuai jenis laporan
 switch($jenis){
@@ -24,6 +31,7 @@ switch($jenis){
              ORDER BY p.tanggal";
         $judul = "Laporan Produksi Susu";
         break;
+
     case 'pakan_sapi':
         $sql = ($role==='admin') ?
             "SELECT p.*, s.nama_sapi, u.username FROM pakan_sapi p
@@ -36,6 +44,7 @@ switch($jenis){
              ORDER BY p.tanggal";
         $judul = "Laporan Pakan Sapi";
         break;
+
     case 'kesehatan_sapi':
         $sql = ($role==='admin') ?
             "SELECT k.*, s.nama_sapi, u.username FROM kesehatan_sapi k
@@ -49,6 +58,7 @@ switch($jenis){
              ORDER BY k.tanggal";
         $judul = "Laporan Kesehatan Sapi";
         break;
+
     case 'populasi_sapi':
         $sql = ($role==='admin') ?
             "SELECT s.*, u.username FROM sapi s
@@ -57,6 +67,7 @@ switch($jenis){
             "SELECT * FROM sapi WHERE id_user='$id_user' ORDER BY kode_sapi";
         $judul = "Laporan Populasi Sapi";
         break;
+
     case 'produksi_olahan':
         $sql = ($role==='admin') ?
             "SELECT o.*, u.username FROM produksi_olahan o
@@ -66,139 +77,144 @@ switch($jenis){
              WHERE id_user='$id_user' AND tanggal BETWEEN '$tgl_awal' AND '$tgl_akhir' ORDER BY tanggal";
         $judul = "Laporan Produksi Olahan";
         break;
+
     default:
         die("Jenis laporan tidak valid.");
 }
 
-$qData = mysqli_query($koneksi,$sql);
+$qData = mysqli_query($koneksi, $sql);
+if(!$qData){
+    die("Query gagal: " . mysqli_error($koneksi));
+}
 ?>
 
 <?php include '../includes/header.php'; ?>
 <?php include '../includes/navbar.php'; ?>
-<?php include '../includes/sidebar.php'; ?>
 
-<main class="flex-1 p-6">
-    <div class="flex justify-end gap-2 mb-2">
-        <a href="export_excel.php?jenis=<?= $jenis ?>&tgl_awal=<?= $tgl_awal ?>&tgl_akhir=<?= $tgl_akhir ?>"
-            class="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700">
-            Export Excel
-        </a>
+<div class="flex min-h-screen">
+    <?php include '../includes/sidebar.php'; ?>
 
-        <a href="export_pdf.php?jenis=<?= $jenis ?>&tgl_awal=<?= $tgl_awal ?>&tgl_akhir=<?= $tgl_akhir ?>"
-            class="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700">
-            Export PDF
-        </a>
-    </div>
+    <main class="flex-1 p-6">
+        <h1 class="text-2xl font-bold mb-4"><?= $judul ?></h1>
 
-    <h1 class="text-xl font-bold mb-4"><?= $judul ?></h1>
-    <p>Periode: <?= $tgl_awal ?> s/d <?= $tgl_akhir ?></p>
+        <div class="flex justify-end gap-2 mb-4">
+            <a href="export_excel.php?jenis=<?= $jenis ?>&tgl_awal=<?= $tgl_awal ?>&tgl_akhir=<?= $tgl_akhir ?>"
+                class="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700">Export Excel</a>
+            <a href="export_pdf.php?jenis=<?= $jenis ?>&tgl_awal=<?= $tgl_awal ?>&tgl_akhir=<?= $tgl_akhir ?>"
+                class="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700">Export PDF</a>
+        </div>
 
-    <div class="overflow-x-auto mt-4">
-        <table class="w-full border border-gray-200">
-            <thead class="bg-gray-100">
-                <tr>
-                    <?php
-switch($jenis){
-    case 'produksi_susu':
-        echo "<th class='border px-2 py-1'>Tanggal</th>";
-        if($role==='admin') echo "<th class='border px-2 py-1'>Peternak</th>";
-        echo "<th class='border px-2 py-1'>Nama Sapi</th>";
-        echo "<th class='border px-2 py-1'>Jumlah (Liter)</th>";
-        echo "<th class='border px-2 py-1'>Waktu</th>";
-        echo "<th class='border px-2 py-1'>Status</th>";
-        break;
-    case 'pakan_sapi':
-        echo "<th class='border px-2 py-1'>Tanggal</th>";
-        if($role==='admin') echo "<th class='border px-2 py-1'>Peternak</th>";
-        echo "<th class='border px-2 py-1'>Nama Sapi</th>";
-        echo "<th class='border px-2 py-1'>Jenis Pakan</th>";
-        echo "<th class='border px-2 py-1'>Waktu</th>";
-        echo "<th class='border px-2 py-1'>Jumlah (Kg)</th>";
-        break;
-    case 'kesehatan_sapi':
-        echo "<th class='border px-2 py-1'>Tanggal</th>";
-        if($role==='admin') echo "<th class='border px-2 py-1'>Peternak</th>";
-        echo "<th class='border px-2 py-1'>Nama Sapi</th>";
-        echo "<th class='border px-2 py-1'>Jenis Pemeriksaan</th>";
-        echo "<th class='border px-2 py-1'>Gejala</th>";
-        echo "<th class='border px-2 py-1'>Tindakan</th>";
-        echo "<th class='border px-2 py-1'>Status</th>";
-        break;
-    case 'populasi_sapi':
-        if($role==='admin') echo "<th class='border px-2 py-1'>Peternak</th>";
-        echo "<th class='border px-2 py-1'>Kode Sapi</th>";
-        echo "<th class='border px-2 py-1'>Nama Sapi</th>";
-        echo "<th class='border px-2 py-1'>Jenis Kelamin</th>";
-        echo "<th class='border px-2 py-1'>Kategori</th>";
-        echo "<th class='border px-2 py-1'>Umur (Bulan)</th>";
-        echo "<th class='border px-2 py-1'>Status</th>";
-        break;
-    case 'produksi_olahan':
-        echo "<th class='border px-2 py-1'>Tanggal</th>";
-        if($role==='admin') echo "<th class='border px-2 py-1'>Peternak</th>";
-        echo "<th class='border px-2 py-1'>Jenis Olahan</th>";
-        echo "<th class='border px-2 py-1'>Bahan Baku</th>";
-        echo "<th class='border px-2 py-1'>Jumlah Hasil</th>";
-        echo "<th class='border px-2 py-1'>Status</th>";
-        break;
-}
-?>
-                </tr>
-            </thead>
-            <tbody>
-                <?php while($row=mysqli_fetch_assoc($qData)): ?>
-                <tr>
-                    <?php
-switch($jenis){
-    case 'produksi_susu':
-        echo "<td class='border px-2 py-1'>{$row['tanggal']}</td>";
-        if($role==='admin') echo "<td class='border px-2 py-1'>{$row['username']}</td>";
-        echo "<td class='border px-2 py-1'>{$row['nama_sapi']}</td>";
-        echo "<td class='border px-2 py-1'>{$row['jumlah_liter']}</td>";
-        echo "<td class='border px-2 py-1'>{$row['waktu_pemerahan']}</td>";
-        echo "<td class='border px-2 py-1'>{$row['status_data']}</td>";
-        break;
-    case 'pakan_sapi':
-        echo "<td class='border px-2 py-1'>{$row['tanggal']}</td>";
-        if($role==='admin') echo "<td class='border px-2 py-1'>{$row['username']}</td>";
-        echo "<td class='border px-2 py-1'>{$row['nama_sapi']}</td>";
-        echo "<td class='border px-2 py-1'>{$row['jenis_pakan']}</td>";
-        echo "<td class='border px-2 py-1'>{$row['waktu_pemberian']}</td>";
-        echo "<td class='border px-2 py-1'>{$row['jumlah_kg']}</td>";
-        break;
-    case 'kesehatan_sapi':
-        echo "<td class='border px-2 py-1'>{$row['tanggal']}</td>";
-        if($role==='admin') echo "<td class='border px-2 py-1'>{$row['username']}</td>";
-        echo "<td class='border px-2 py-1'>{$row['nama_sapi']}</td>";
-        echo "<td class='border px-2 py-1'>{$row['jenis_pemeriksaan']}</td>";
-        echo "<td class='border px-2 py-1'>{$row['gejala']}</td>";
-        echo "<td class='border px-2 py-1'>{$row['tindakan']}</td>";
-        echo "<td class='border px-2 py-1'>{$row['status_kesehatan']}</td>";
-        break;
-    case 'populasi_sapi':
-        if($role==='admin') echo "<td class='border px-2 py-1'>{$row['username']}</td>";
-        echo "<td class='border px-2 py-1'>{$row['kode_sapi']}</td>";
-        echo "<td class='border px-2 py-1'>{$row['nama_sapi']}</td>";
-        echo "<td class='border px-2 py-1'>{$row['jenis_kelamin']}</td>";
-        echo "<td class='border px-2 py-1'>{$row['kategori_sapi']}</td>";
-        echo "<td class='border px-2 py-1'>{$row['umur_bulan']}</td>";
-        echo "<td class='border px-2 py-1'>{$row['status_sapi']}</td>";
-        break;
-    case 'produksi_olahan':
-        echo "<td class='border px-2 py-1'>{$row['tanggal']}</td>";
-        if($role==='admin') echo "<td class='border px-2 py-1'>{$row['username']}</td>";
-        echo "<td class='border px-2 py-1'>{$row['jenis_olahan']}</td>";
-        echo "<td class='border px-2 py-1'>{$row['bahan_baku_liter']}</td>";
-        echo "<td class='border px-2 py-1'>{$row['jumlah_hasil']}</td>";
-        echo "<td class='border px-2 py-1'>{$row['status_produksi']}</td>";
-        break;
-}
-?>
-                </tr>
-                <?php endwhile; ?>
-            </tbody>
-        </table>
-    </div>
-</main>
+        <p class="mb-4">Periode: <?= $tgl_awal ?> s/d <?= $tgl_akhir ?></p>
+
+        <div class="overflow-x-auto bg-white rounded shadow">
+            <table class="w-full border border-gray-200 text-sm">
+                <thead class="bg-gray-100">
+                    <tr>
+                        <?php
+                        // Header tabel
+                        switch($jenis){
+                            case 'produksi_susu':
+                                echo "<th class='border px-2 py-1'>Tanggal</th>";
+                                if($role==='admin') echo "<th class='border px-2 py-1'>Peternak</th>";
+                                echo "<th class='border px-2 py-1'>Nama Sapi</th>
+                                      <th class='border px-2 py-1'>Jumlah (Liter)</th>
+                                      <th class='border px-2 py-1'>Waktu</th>
+                                      <th class='border px-2 py-1'>Status</th>";
+                                break;
+                            case 'pakan_sapi':
+                                echo "<th class='border px-2 py-1'>Tanggal</th>";
+                                if($role==='admin') echo "<th class='border px-2 py-1'>Peternak</th>";
+                                echo "<th class='border px-2 py-1'>Nama Sapi</th>
+                                      <th class='border px-2 py-1'>Jenis Pakan</th>
+                                      <th class='border px-2 py-1'>Waktu</th>
+                                      <th class='border px-2 py-1'>Jumlah (Kg)</th>";
+                                break;
+                            case 'kesehatan_sapi':
+                                echo "<th class='border px-2 py-1'>Tanggal</th>";
+                                if($role==='admin') echo "<th class='border px-2 py-1'>Peternak</th>";
+                                echo "<th class='border px-2 py-1'>Nama Sapi</th>
+                                      <th class='border px-2 py-1'>Jenis Pemeriksaan</th>
+                                      <th class='border px-2 py-1'>Gejala</th>
+                                      <th class='border px-2 py-1'>Tindakan</th>
+                                      <th class='border px-2 py-1'>Status</th>";
+                                break;
+                            case 'populasi_sapi':
+                                if($role==='admin') echo "<th class='border px-2 py-1'>Peternak</th>";
+                                echo "<th class='border px-2 py-1'>Kode Sapi</th>
+                                      <th class='border px-2 py-1'>Nama Sapi</th>
+                                      <th class='border px-2 py-1'>Jenis Kelamin</th>
+                                      <th class='border px-2 py-1'>Kategori</th>
+                                      <th class='border px-2 py-1'>Umur (Bulan)</th>
+                                      <th class='border px-2 py-1'>Status</th>";
+                                break;
+                            case 'produksi_olahan':
+                                echo "<th class='border px-2 py-1'>Tanggal</th>";
+                                if($role==='admin') echo "<th class='border px-2 py-1'>Peternak</th>";
+                                echo "<th class='border px-2 py-1'>Jenis Olahan</th>
+                                      <th class='border px-2 py-1'>Bahan Baku</th>
+                                      <th class='border px-2 py-1'>Jumlah Hasil</th>
+                                      <th class='border px-2 py-1'>Status</th>";
+                                break;
+                        }
+                        ?>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php while($row=mysqli_fetch_assoc($qData)): ?>
+                    <tr>
+                        <?php
+                            // Data tabel
+                            switch($jenis){
+                                case 'produksi_susu':
+                                    echo "<td class='border px-2 py-1'>{$row['tanggal']}</td>";
+                                    if($role==='admin') echo "<td class='border px-2 py-1'>{$row['username']}</td>";
+                                    echo "<td class='border px-2 py-1'>{$row['nama_sapi']}</td>
+                                          <td class='border px-2 py-1'>{$row['jumlah_liter']}</td>
+                                          <td class='border px-2 py-1'>{$row['waktu_pemerahan']}</td>
+                                          <td class='border px-2 py-1'>{$row['status_data']}</td>";
+                                    break;
+                                case 'pakan_sapi':
+                                    echo "<td class='border px-2 py-1'>{$row['tanggal']}</td>";
+                                    if($role==='admin') echo "<td class='border px-2 py-1'>{$row['username']}</td>";
+                                    echo "<td class='border px-2 py-1'>{$row['nama_sapi']}</td>
+                                          <td class='border px-2 py-1'>{$row['jenis_pakan']}</td>
+                                          <td class='border px-2 py-1'>{$row['waktu_pemberian']}</td>
+                                          <td class='border px-2 py-1'>{$row['jumlah_kg']}</td>";
+                                    break;
+                                case 'kesehatan_sapi':
+                                    echo "<td class='border px-2 py-1'>{$row['tanggal']}</td>";
+                                    if($role==='admin') echo "<td class='border px-2 py-1'>{$row['username']}</td>";
+                                    echo "<td class='border px-2 py-1'>{$row['nama_sapi']}</td>
+                                          <td class='border px-2 py-1'>{$row['jenis_pemeriksaan']}</td>
+                                          <td class='border px-2 py-1'>{$row['gejala']}</td>
+                                          <td class='border px-2 py-1'>{$row['tindakan']}</td>
+                                          <td class='border px-2 py-1'>{$row['status_kesehatan']}</td>";
+                                    break;
+                                case 'populasi_sapi':
+                                    if($role==='admin') echo "<td class='border px-2 py-1'>{$row['username']}</td>";
+                                    echo "<td class='border px-2 py-1'>{$row['kode_sapi']}</td>
+                                          <td class='border px-2 py-1'>{$row['nama_sapi']}</td>
+                                          <td class='border px-2 py-1'>{$row['jenis_kelamin']}</td>
+                                          <td class='border px-2 py-1'>{$row['kategori_sapi']}</td>
+                                          <td class='border px-2 py-1'>{$row['umur_bulan']}</td>
+                                          <td class='border px-2 py-1'>{$row['status_sapi']}</td>";
+                                    break;
+                                case 'produksi_olahan':
+                                    echo "<td class='border px-2 py-1'>{$row['tanggal']}</td>";
+                                    if($role==='admin') echo "<td class='border px-2 py-1'>{$row['username']}</td>";
+                                    echo "<td class='border px-2 py-1'>{$row['jenis_olahan']}</td>
+                                          <td class='border px-2 py-1'>{$row['bahan_baku_liter']}</td>
+                                          <td class='border px-2 py-1'>{$row['jumlah_hasil']}</td>
+                                          <td class='border px-2 py-1'>{$row['status_produksi']}</td>";
+                                    break;
+                            }
+                            ?>
+                    </tr>
+                    <?php endwhile; ?>
+                </tbody>
+            </table>
+        </div>
+    </main>
+</div>
 
 <?php include '../includes/footer.php'; ?>
